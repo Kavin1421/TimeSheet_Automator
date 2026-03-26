@@ -15,8 +15,8 @@ export default function Navbar() {
     <nav className="fixed top-0 inset-x-0 h-16 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 z-50">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 h-full flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-primary to-purple-500 flex items-center justify-center shadow-lg shadow-primary/30">
-            <Clock className="w-5 h-5 text-white" />
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-primary/20 to-purple-500/20 flex items-center justify-center p-1.5 shadow-sm">
+            <img src="/images/timesheet.png" alt="Timesheet Logo" className="w-full h-full object-contain" />
           </div>
           <span className="font-bold text-lg bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 dark:from-white dark:via-slate-200 dark:to-white tracking-tight">
             Timesheet

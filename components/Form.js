@@ -84,6 +84,7 @@ export default function Form({ onEntryAdded }) {
       });
       
       onEntryAdded();
+      resetForm(false);
       
     } catch (error) {
       toast.error(error.message || 'Failed to update Excel. Try again.');

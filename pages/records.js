@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Head from 'next/head';
-import { Search, Download, ArrowUpDown, Loader2, AlertCircle, FileSpreadsheet, Trash2, Edit2 } from 'lucide-react';
+import { Search, Download, ArrowUpDown, Loader2, AlertCircle, FileSpreadsheet, Trash2, Edit2, Copy, ChevronUp, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { cn } from '../utils/cn';
+import { format } from 'date-fns';
 import EditModal from '../components/EditModal';
 import ManagerExportModal from '../components/ManagerExportModal';
+import AnalyticsDashboard from '../components/AnalyticsDashboard';
 
 export default function Records() {
   const [records, setRecords] = useState([]);
@@ -25,6 +27,81 @@ export default function Records() {
   const [exportYear, setExportYear] = useState(new Date().getFullYear());
   const [isExportingManager, setIsExportingManager] = useState(false);
   const [showManagerExport, setShowManagerExport] = useState(false);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterType, sortConfig]);
+
+  const [isReordering, setIsReordering] = useState(false);
+  const [isCloning, setIsCloning] = useState(false);
+
+  const handleClone = async (record) => {
+    try {
+      setIsCloning(true);
+      const today = new Date();
+      const payload = {
+        dateStr: format(today, 'EEEE, d MMMM, yyyy'),
+        issues: record.issues,
+        time: record.time,
+        priority: record.priority,
+        description: record.description,
+        entryType: record.entryType,
+        isWeekendDay: (today.getDay() === 0 || today.getDay() === 6)
+      };
+
+      const res = await fetch('/api/writeToExcel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Clone failed');
+      
+      toast.success('Record successfully cloned to today!');
+      fetchRecords();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setIsCloning(false);
+    }
+  };
+
+  const handleReorder = async (record, direction) => {
+    if (isReordering) return;
+    const currentIndex = records.findIndex(r => r.rowNum === record.rowNum);
+    if (currentIndex === -1) return;
+    
+    // Moving UP visually means moving towards index 0 (smaller index).
+    // Moving DOWN visually means moving towards length-1 (larger index).
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    
+    if (targetIndex < 0 || targetIndex >= records.length) return;
+    
+    const targetRecord = records[targetIndex];
+    if (!targetRecord) return;
+
+    try {
+      setIsReordering(true);
+      const res = await fetch('/api/reorderRecords', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rowNum1: record.rowNum, rowNum2: targetRecord.rowNum })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Swap failed');
+      
+      toast.success(`Row shifted ${direction}!`);
+      fetchRecords();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setIsReordering(false);
+    }
+  };
 
   const fetchRecords = useCallback(async () => {
     try {
@@ -142,6 +219,13 @@ export default function Records() {
 
     return result;
   }, [records, searchQuery, filterType, sortConfig]);
+
+  const paginatedRecords = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredAndSortedRecords.slice(start, start + itemsPerPage);
+  }, [filteredAndSortedRecords, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredAndSortedRecords.length / itemsPerPage);
 
   const exportToCSV = () => {
     if (filteredAndSortedRecords.length === 0) return;
@@ -290,6 +374,11 @@ export default function Records() {
         </div>
         )}
 
+        {/* Analytics Dashboard */}
+        {!isLoading && !error && filteredAndSortedRecords.length > 0 && filterType === 'All' && !searchQuery.trim() && (
+          <AnalyticsDashboard records={records} />
+        )}
+
         {/* Data Table */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden relative">
           
@@ -331,7 +420,7 @@ export default function Records() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                  {filteredAndSortedRecords.map((record, idx) => (
+                  {paginatedRecords.map((record, idx) => (
                     <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
                       <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-200">{record.date}</td>
                       <td className="px-6 py-4">
@@ -369,7 +458,32 @@ export default function Records() {
                         )}
                       </td>
                       <td className="px-4 py-4 sticky right-0 bg-white dark:bg-slate-900 shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.02)] border-l border-slate-50 dark:border-slate-800">
-                        <div className="flex items-center justify-center gap-2">
+                        <div className="flex items-center justify-center gap-1 sm:gap-1.5">
+                          {/* Reordering Controls. Only active internally if not heavily filtering/sorting */}
+                          {(!searchQuery && filterType === 'All' && sortConfig.key === 'rawDate') && (
+                            <div className="flex flex-col border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden mr-1">
+                              <button 
+                                onClick={() => handleReorder(record, 'up')}
+                                disabled={isReordering || idx === 0}
+                                className="bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 p-0.5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              ><ChevronUp className="w-3.5 h-3.5" /></button>
+                              <div className="h-[1px] bg-slate-200 dark:bg-slate-700" />
+                              <button 
+                                onClick={() => handleReorder(record, 'down')}
+                                disabled={isReordering || idx === filteredAndSortedRecords.length - 1}
+                                className="bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 p-0.5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                              ><ChevronDown className="w-3.5 h-3.5" /></button>
+                            </div>
+                          )}
+
+                          <button
+                            onClick={() => handleClone(record)}
+                            disabled={isCloning}
+                            className="p-1.5 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 rounded transition-colors disabled:opacity-50"
+                            title="Clone to Today"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
                           <button
                             onClick={() => setEditingRecord(record)}
                             className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded transition-colors"
@@ -393,6 +507,48 @@ export default function Records() {
             </div>
           )}
           
+          {/* Pagination Controls */}
+          {!isLoading && !error && filteredAndSortedRecords.length > 0 && (
+            <div className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                <span>Display </span>
+                <select 
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="bg-slate-50 dark:bg-slate-800 border-none rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <span> items</span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Prev
+                </button>
+                <div className="text-sm text-slate-600 dark:text-slate-300 font-medium px-2">
+                  Page {currentPage} of {Math.max(1, totalPages)}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Footer stats */}
           {!isLoading && !error && filteredAndSortedRecords.length > 0 && (
             <div className="bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 px-6 py-4 flex items-center justify-between text-sm text-slate-500 dark:text-slate-400">

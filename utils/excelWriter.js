@@ -346,3 +346,71 @@ export async function updateRowInExcel(rowNum, { dateStr, issues, time, priority
     throw error;
   }
 }
+
+export async function swapRowsInExcel(rowNum1, rowNum2) {
+  try {
+    if (!fs.existsSync(EXCEL_PATH)) throw new Error('Excel file not found');
+
+    const workbook = new ExcelJS.Workbook();
+    await readFileWithRetry(workbook, EXCEL_PATH);
+    const worksheet = workbook.getWorksheet('TimeSheet') || workbook.worksheets[0];
+
+    if (!worksheet) throw new Error('Worksheet not found');
+
+    const r1 = Number(rowNum1);
+    const r2 = Number(rowNum2);
+    
+    const row1 = worksheet.getRow(r1);
+    const row2 = worksheet.getRow(r2);
+    const maxCols = 5;
+
+    try { worksheet.unMergeCells(`B${r1}:E${r1}`); } catch(e) {}
+    try { worksheet.unMergeCells(`B${r2}:E${r2}`); } catch(e) {}
+
+    const tempVals = [];
+    const tempFills = [];
+    const tempStyles = [];
+    
+    for (let c = 1; c <= maxCols; c++) {
+        tempVals[c] = row1.getCell(c).value;
+        tempFills[c] = row1.getCell(c).fill;
+        tempStyles[c] = row1.getCell(c).style;
+    }
+    
+    for (let c = 1; c <= maxCols; c++) {
+        row1.getCell(c).value = row2.getCell(c).value;
+        row1.getCell(c).fill = row2.getCell(c).fill;
+        row1.getCell(c).style = row2.getCell(c).style;
+        
+        row2.getCell(c).value = tempVals[c];
+        row2.getCell(c).fill = tempFills[c];
+        row2.getCell(c).style = tempStyles[c];
+    }
+
+    const reMergeIfNeeded = (row, rNum) => {
+        let isLeave = ['Holiday', 'Planned Leave', 'Sick Leave'].includes(row.getCell(2).text);
+        let timeIsEmpty = !row.getCell(3).value;
+
+        if (isLeave && timeIsEmpty) {
+            try { worksheet.mergeCells(`B${rNum}:E${rNum}`); } catch(e) {}
+            row.getCell(2).alignment = { horizontal: 'center', vertical: 'middle' };
+        } else {
+            row.getCell(2).alignment = { horizontal: 'left', vertical: 'bottom', wrapText: true };
+        }
+    };
+
+    reMergeIfNeeded(row1, r1);
+    reMergeIfNeeded(row2, r2);
+    
+    row1.commit();
+    row2.commit();
+    
+    await writeFileWithRetry(workbook, EXCEL_PATH);
+    return { success: true };
+  } catch (error) {
+    if (error.code === 'EBUSY' || error.code === 'EPERM') {
+      throw new Error('FILE_LOCKED');
+    }
+    throw error;
+  }
+}

@@ -1,0 +1,34 @@
+
+> timesheet-automator@1.0.0 dev
+> next dev
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 3.3s
+ ○ Compiling / ...
+ ✓ Compiled / in 2.4s (924 modules)
+ ✓ Compiled in 182ms (924 modules)
+ GET / 200 in 37ms
+ ○ Compiling /api/readExcel ...
+ ✓ Compiled /api/readExcel in 1494ms (288 modules)
+ GET /api/readExcel 304 in 2848ms
+ GET /api/readExcel 304 in 503ms
+ ○ Compiling /records ...
+ ✓ Compiled /records in 1986ms (1714 modules)
+ GET /api/readExcel?all=true 200 in 1078ms
+ GET /api/readExcel?all=true 200 in 577ms
+ GET /api/readExcel 304 in 1191ms
+ GET /api/readExcel 304 in 615ms
+ ○ Compiling /api-docs ...
+ ✓ Compiled /api-docs in 4.3s (3614 modules)
+ GET /api-docs 200 in 4356ms
+ ✓ Compiled /api/reorderRecords in 72ms (528 modules)
+ POST /api/reorderRecords 400 in 83ms
+ GET /api/readExcel 304 in 1045ms
+ GET / 200 in 81ms
+ GET /api/readExcel 304 in 995ms
+ GET /api/readExcel 304 in 662ms
+[?25h

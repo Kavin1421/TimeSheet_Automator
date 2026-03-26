@@ -1,0 +1,156 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Timesheet Automator API",
+    "description": "API documentation for the automated Excel Timesheet system.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000/api",
+      "description": "Local Next.js API"
+    }
+  ],
+  "paths": {
+    "/readExcel": {
+      "get": {
+        "summary": "Retrieve entries from the Timesheet Excel file",
+        "parameters": [
+          {
+            "name": "all",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["true", "false"]
+            },
+            "description": "Flag to return all entries instead of just the latest 3"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved records"
+          },
+          "409": {
+            "description": "Excel file is locked/open"
+          }
+        }
+      }
+    },
+    "/writeToExcel": {
+      "post": {
+        "summary": "Log a normal entry, holiday, or leave",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "dateStr": { "type": "string" },
+                  "issues": { "type": "string" },
+                  "time": { "type": "number" },
+                  "priority": { "type": "number", "default": 1 },
+                  "description": { "type": "string" },
+                  "entryType": { "type": "string" },
+                  "isWeekendDay": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Entry successfully written" },
+          "400": { "description": "Missing required fields" },
+          "409": { "description": "Excel file is locked" }
+        }
+      }
+    },
+    "/updateRecord": {
+      "put": {
+        "summary": "Edit an existing row",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "rowNum": { "type": "number" },
+                  "record": { "type": "object" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Success" }
+        }
+      }
+    },
+    "/deleteRecord": {
+      "delete": {
+        "summary": "Delete a specific row numerically and shift data",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "rowNum": { "type": "number" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Success" }
+        }
+      }
+    },
+    "/reorderRecords": {
+      "post": {
+        "summary": "Swap two explicit rows directly in the Excel file",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "rowNum1": { "type": "number" },
+                  "rowNum2": { "type": "number" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Success" }
+        }
+      }
+    },
+    "/exportManager": {
+      "post": {
+        "summary": "Export a formal billing format for the specified month and year",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "month": { "type": "number" },
+                  "year": { "type": "number" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Successfully generated Excel export" }
+        }
+      }
+    }
+  }
+}
